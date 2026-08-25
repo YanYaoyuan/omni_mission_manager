@@ -48,7 +48,7 @@ jobs:
           ref: main
           fetch-depth: 1
           path: ws/src/omni_robot_interfaces
-          token: ${{ secrets.CI_GIT_TOKEN || github.token }}
+          ssh-key: ${{ secrets.OMNI_INTERFACES_DEPLOY_KEY }}
       - name: Install build tools
         run: |
           apt-get update

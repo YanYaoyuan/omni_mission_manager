@@ -1,0 +1,8 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+# Keep CI focused on stable correctness checks. Broader style migrations should
+# be enabled deliberately instead of changing whenever Ruff adds new defaults.
+select = ["E4", "E7", "E9", "F"]
