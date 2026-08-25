@@ -11,7 +11,7 @@
     restart recovery (active missions become INTERRUPTED, never
     auto-resumed).
   </description>
-  <maintainer email="maintainer@example.com">Rosdeck Maintainers</maintainer>
+  <maintainer email="38186557+YanYaoyuan@users.noreply.github.com">YanYaoyuan</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>

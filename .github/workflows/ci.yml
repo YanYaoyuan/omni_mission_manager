@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python core
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install lint tool
+        run: python3 -m pip install --user ruff==0.16.3
+      - name: Lint
+        run: python3 -m ruff check .
+      - name: Unit tests
+        run: python3 -m unittest discover -s test -v
+
+  ros-build:
+    name: ROS 2 Humble package build
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base-jammy
+    defaults:
+      run:
+        shell: bash
+    env:
+      ROS_WS: ${{ github.workspace }}/ws
+    steps:
+      - name: Checkout mission manager
+        uses: actions/checkout@v7.0.1
+        with:
+          path: ws/src/omni_mission_manager
+      - name: Checkout shared Omni interfaces
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: YanYaoyuan/omni_robot_interfaces
+          ref: main
+          fetch-depth: 1
+          path: ws/src/omni_robot_interfaces
+          token: ${{ secrets.CI_GIT_TOKEN || github.token }}
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions
+      - name: Build
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd "${ROS_WS}"
+          colcon build --packages-up-to omni_mission_manager \
+            --event-handlers console_direct+
+      - name: Test package
+        run: |
+          source /opt/ros/humble/setup.bash
+          cd "${ROS_WS}"
+          colcon test --packages-select omni_mission_manager \
+            --event-handlers console_direct+
+          colcon test-result --verbose
+      - name: Upload colcon logs
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: mission-colcon-${{ github.run_id }}
+          path: ${{ env.ROS_WS }}/log
+          retention-days: 3

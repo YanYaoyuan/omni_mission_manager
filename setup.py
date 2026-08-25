@@ -17,8 +17,8 @@ setup(
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="Rosdeck Maintainers",
-    maintainer_email="maintainer@example.com",
+    maintainer="YanYaoyuan",
+    maintainer_email="38186557+YanYaoyuan@users.noreply.github.com",
     description="Mission Manager: dispatches and controls inspection "
                 "missions (V1).",
     license="Apache-2.0",

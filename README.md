@@ -1,13 +1,18 @@
 # omni_mission_manager
 
-Mission Manager for the omni inspection robot (V1). It is the server of the
+Robot-side mission orchestrator for the omni inspection robot. It is the server of the
 `ExecuteInspection` action and the provider of `MissionControl` /
 `ListRoutes`; it drives the SCAN planner through the `FollowRoute` action
-and holds the **mission** control lease against the gateway arbiter.
+and holds the **MISSION** control lease against the unified robot bridge.
 
-The V1 contract lives in [`lifliu/omni_robot_interfaces`](https://github.com/lifliu/omni_robot_interfaces);
+The V1 contract lives in [`YanYaoyuan/omni_robot_interfaces`](https://github.com/YanYaoyuan/omni_robot_interfaces);
 constant values below are mirrored locally (see `constants.py`) and pinned
 by the interfaces repo CI.
+
+This repository was history-preservingly extracted from `rosdeck/robot`.
+It is a robot runtime component and has no dependency on the Rosdeck App.
+See [the complete interface contract](docs/INTERFACES.md) and
+[the engineering backlog](docs/TODO.md).
 
 ## ROS surface
 
@@ -17,10 +22,17 @@ by the interfaces repo CI.
 | Action (client) | `/omni/navigation/follow_route` (`FollowRoute`) | scan planner |
 | Service | `/omni/mission/control` (`MissionControl`) | App |
 | Service | `/omni/routes/list` (`ListRoutes`) | App |
-| Service (client) | `/omni/control/authority` (`ControlAuthority`) | gateway |
-| Topic (sub) | `/omni/robot_state` (`RobotState`, transient_local) | gateway |
-| Topic (pub) | `/omni/mission/status` (`MissionStatus`, transient_local) | App, gateway |
+| Service | `/omni/mission/dispatch` (`DispatchMission`) | App/gateway compatibility entry |
+| Service | `/omni/mission/results` (`GetCheckpointResults`) | App |
+| Action (server) | `/omni/mission/return_to_dock` (`ReturnToDock`) | App, low-battery watchdog |
+| Action (client) | `/omni/docking/dock` (`Dock`) | omni_docking |
+| Service (client) | `/omni/docking/config` (`GetDockConfig`) | omni_docking |
+| Service (client) | `/omni/control/authority` (`ControlAuthority`) | omni_robot_bridge (target contract) |
+| Topic (sub) | `/omni/robot_state` (`RobotState`, transient_local) | omni_robot_bridge |
+| Topic (sub) | `/state_estimation_global` (`Odometry`) | omni_slam compatibility output |
+| Topic (pub) | `/omni/mission/status` (`MissionStatus`, transient_local) | App, omni_robot_bridge |
 | Topic (pub) | `/omni/mission/events` (`MissionEvent`, reliable) | App, diagnostics |
+| Topic (pub) | `/omni/mission/checkpoint_results` (`CheckpointResult`) | App, evidence pipeline |
 
 ## Lifecycle
 
@@ -81,17 +93,14 @@ goal `map_id`/`map_version` empty means "current".
 # core unit tests (pure Python, no ROS needed):
 python3 -m unittest discover -s test -v
 
-# full ROS build (Orin), via the bridge build script which syncs this
-# package into the workspace automatically:
-./rosdeck_robot_bridge/scripts/build.sh --profile vbot --ros-setup /app/script/env.sh
+# ROS workspace build (omni_robot_interfaces must be in the same workspace):
+colcon build --packages-up-to omni_mission_manager
 ```
 
-Deployment (sudo) installs `omni-mission-manager.service` alongside the
-bridge and health-checks it:
-
-```bash
-sudo ./rosdeck_robot_bridge/scripts/deploy.sh --profile vbot --ros-setup /app/script/env.sh
-```
+Deployment ownership is intentionally outside this repository. The product
+composition layer should install and supervise this package independently
+from the bridge so either component can be rolled back without replacing the
+other.
 
 ## Parameters
 
@@ -111,3 +120,13 @@ sudo ./rosdeck_robot_bridge/scripts/deploy.sh --profile vbot --ros-setup /app/sc
 | `lease_renew_period_sec` | `1.0` |
 | `robot_state_stale_ms` | `2000.0` |
 | `planner_stale_sec` | `30.0` |
+
+## Repository policy
+
+- ROS interface definitions are consumed from `omni_robot_interfaces`; this
+  repository does not duplicate `.msg`, `.srv` or `.action` files.
+- Topic/service/action names are parameters, while the defaults above are the
+  compatibility contract covered by integration tests.
+- The extracted package metadata says `Apache-2.0`, while the former monorepo
+  root carried `GPL-3.0`. The owner must resolve that provenance and add an
+  authoritative root `LICENSE` before any external binary/source release.
